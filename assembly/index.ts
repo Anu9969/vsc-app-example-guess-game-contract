@@ -1,180 +1,146 @@
-import { JSON } from "assemblyscript-json/assembly";
-import { Error } from "assemblyscript/std/assembly/error";
-
-import { db, console, TxOutput } from "@vsc.eco/sdk/assembly";
+import { db, getEnv } from '@vsc.eco/sdk/assembly';
+import { JSONDecoder, JSONEncoder, JSON } from 'assemblyscript-json/assembly';
 // import {JSON} from 'json-as'
 
 // import { sdk } from '@vsc.eco/sdk'
 
-declare namespace System {
-  function getEnv(str: String): String;
-  function call(str: String): String;
-}
+class GameParams {
+  rounds: i64 = 3;
+  currentRound: i64 = 0;
+  player1: string;
+  player2: string | null = null;
+  player1Guess: i64 = 0;
+  player2Guess: i64 = 0;
+  player1Score: i64 = 0;
+  player2Score: i64 = 0;
 
-class InvalidInputError extends Error {
-  constructor(msg: String) {
-    super(msg.toString());
-
-    // Set the prototype explicitly.
-    //   Object.setPrototypeOf(this, InvalidInputError.prototype);
+  constructor(player1: string) {
+      this.player1 = player1;
   }
 }
 
-function testError(msg: String): void {
-  const json = new JSON.Obj();
-  json.set("msg", msg);
-  json.set("__t", "invalid_input");
-  const error = new Error(json.stringify());
-  throw error;
+export function serializeGameParams(gameParams: GameParams): string {
+  let encoder = new JSONEncoder();
+  encoder.pushObject(null);
+
+  encoder.setInteger("rounds", gameParams.rounds);
+  encoder.setInteger("currentRound", gameParams.currentRound);
+  encoder.setString("player1", gameParams.player1);
+  encoder.setInteger("player1Score", gameParams.player1Score);
+  encoder.setInteger("player2Score", gameParams.player2Score);
+  encoder.setInteger("player1Guess", gameParams.player1Guess);
+  encoder.setInteger("player2Guess", gameParams.player2Guess);
+  if (gameParams.player2 !== null) {
+    encoder.setString("player2", gameParams.player2!);
+  }
+  
+  encoder.popObject();
+  return encoder.toString();
 }
 
-// function assertEqual
-
-class ObjType {
-  // @ts-ignore
-  callCount: i32;
-}
-const obj: ObjType = {
-  callCount: 0,
-};
-
-// @ts-ignore
-// @external('env', 'seed')
-// declare function seed(): i64;
-
-export function testJSON(payload: String): string {
-  let jsonObj: JSON.Obj = <JSON.Obj>JSON.parse(payload);
-
-  console.log(jsonObj.stringify());
-  console.log(jsonObj.keys[0]);
-  jsonObj.keys.forEach((e) => {
-    console.log(e);
-  });
-
-  console.log(
-    `to value: ${jsonObj.getString("to")!} ${
-      jsonObj.getString("to")!.toString() === "test1"
-    }`
-  );
-  assert(jsonObj.getString("to")!, "test2");
-  console.log(`assert code: ${assert(jsonObj.getString("to")!._str, "test2")}`);
-  if (jsonObj.getString("to")!.valueOf() === "test1") {
-    console.log("I should throw error");
-    testError("I should break here");
+export function deserializeGameParams(serialized: string): GameParams {
+  const parsed = <JSON.Obj>JSON.parse(serialized);
+  let gameParams = new GameParams(parsed.getString("player1")!.valueOf());
+  gameParams.rounds = parsed.getInteger("rounds")!.valueOf();
+  gameParams.currentRound = parsed.getInteger("currentRound")!.valueOf();
+  gameParams.player1Score = parsed.getInteger("player1Score")!.valueOf();
+  gameParams.player2Score = parsed.getInteger("player2Score")!.valueOf();
+  gameParams.player1Guess = parsed.getInteger("player1Guess")!.valueOf();
+  gameParams.player2Guess = parsed.getInteger("player2Guess")!.valueOf();
+  if (parsed.getString("player2") !== null) {
+    gameParams.player2 = parsed.getString("player2")!.valueOf();
   }
 
-  db.setObject("key-1", jsonObj.stringify());
-  const val = db.getObject("key-1");
-
-  console.log(`test val`);
-  console.log(val);
-
-  obj.callCount = obj.callCount + 1;
-
-  return `Count: ${obj.callCount}`;
+  return gameParams;
 }
 
-class T_TOKEN_CONFIG {
-  // @ts-ignore
-  decimals: i64;
-  // @ts-ignore
-  mint_authority: String;
+export function openGame(): void {
+  const env = getEnv()
+  const gameParams = new GameParams(env.msg_sender);
+  const serialized = serializeGameParams(gameParams);
+  db.setObject(`game_params`, serialized);
 }
 
-const TOKEN_CONFIG: T_TOKEN_CONFIG = {
-  decimals: 3,
-  mint_authority: "",
-};
-
-class transferPayload {
-  // @ts-ignore
-  to: String;
-  // @ts-ignore
-  from: String;
-  // @ts-ignore
-  amount: i64;
-}
-
-export function transfer(payload: String): String {
-  let jsonObj: JSON.Obj = <JSON.Obj>JSON.parse(payload);
-  const transferPayload: transferPayload = {
-    to: jsonObj.getString("to")!._str,
-    from: "",
-    amount: 33,
-  };
-
-  return new TxOutput().exitCode(0).done();
-}
-
-class MintPayload {
-  // @ts-ignore
-  to: String;
-  // @ts-ignore
-  amount: i64;
-}
-
-class MintVal {
-  // @ts-ignore
-  val: i64;
-}
-
-export function mint(payload: String): String {
-  let jsonObj: JSON.Obj = <JSON.Obj>JSON.parse(payload);
-  const mintPayload: MintPayload = {
-    amount: jsonObj.getInteger("amount")!.valueOf(),
-    to: jsonObj.getString("to")!.valueOf(),
-  };
-  db.setObject(
-    mintPayload.to,
-    JSON.from<MintVal>({
-      val: mintPayload.amount,
-    }).stringify()
-  );
-
-  return new TxOutput().exitCode(0).msg("MINT_SUCCESS").done();
-}
-
-class BurnPayload {
-  // @ts-ignore
-  address: String;
-  // @ts-ignore
-  amount: i64;
-}
-
-export function burn(payload: String): String {
-  let jsonObj: JSON.Obj = <JSON.Obj>JSON.parse(payload);
-  const out = new TxOutput();
-  const amount = jsonObj.getInteger("amount");
-
-  if (!amount) {
-    return out.exitCode(-1).msg("Invalid Input").done();
+export function joinGame(): void {
+  const currentGame = db.getObject(`game_params`);
+  if (currentGame !== "null") {
+    const env = getEnv()
+    const game = deserializeGameParams(currentGame);
+    game.player2 = env.msg_sender;
+    const serialized = serializeGameParams(game);
+    db.setObject(`game_params`, serialized);
+  } else {
+    throw new Error('No game found, please initialize a game first.');
   }
+}
 
-  if (!amount.isInteger) {
-    return out.exitCode(-1).msg("Invalid data").done();
+export function resetGame(): void {
+  db.setObject(`game_params`, "null");
+  db.setObject(`winner`, "null");
+}
+
+export function calcAbsDiff(a: i64, b: i64): i64 {
+  if (a > b) {
+    return a - b;
+  } else {
+    return b - a;
   }
+}
 
-  const burnPayload: BurnPayload = {
-    amount: amount._num,
-    address: jsonObj.getString("address")!._str,
-  };
-  const val = <JSON.Obj>(
-    JSON.parse(db.getObject(`balances/${burnPayload.address}`))
-  );
+function mapValue(value: f64, fromMin: f64, fromMax: f64, toMin: f64, toMax: f64): f64 {
+  return (value - fromMin) * (toMax - toMin) / (fromMax - fromMin) + toMin;
+}
+ 
+function convertCharToRange(charCode: u8): i64 {
+  let mappedValue = mapValue(charCode, 0, 255, 1, 100);
+  return <i64>mappedValue;
+}
 
-  const balance = val.getInteger("val");
+export function play(guess: number): void {
+  const currentGame = db.getObject(`game_params`);
+  if (currentGame !== "null") {
+    const env = getEnv()
+    const game = deserializeGameParams(currentGame);
 
-  if (!balance) {
-    return out.exitCode(-1).msg("Invalid data").done();
+    if (game.player1 !== env.msg_sender && game.player2 !== env.msg_sender) {
+      throw new Error('You are not a player in this game.');
+    }
+    if (game.player2 === null) {
+      throw new Error('Player 2 not joined yet.');
+    }
+    if (game.player1 === env.msg_sender) {
+      game.player1Guess = <i64>guess;
+    }
+    if (game.player2 === env.msg_sender) {
+      game.player2Guess = <i64>guess;
+    }
+
+    if (game.player1Guess !== 0 && game.player2Guess !== 0) {
+      // using anchor_id as random number
+      const randomNumber: i64 = convertCharToRange(<u8>env.anchor_id.charCodeAt(0));
+      if (calcAbsDiff(game.player1Guess!, randomNumber) < calcAbsDiff(game.player2Guess!, randomNumber)) {
+        game.player1Score += 1;
+      } else {
+        game.player2Score += 1;
+      }
+
+      game.currentRound += 1;
+      if (game.currentRound === game.rounds) {
+        if (game.player1Score > game.player2Score) {
+          db.setObject('winner', game.player1! + ':' + game.player1Score.toString());
+          return;
+        } else {
+          db.setObject('winner', game.player2! + ':' + game.player2Score.toString());
+          return;
+        }
+      }
+      game.player1Guess = 0;
+      game.player2Guess = 0;
+    }
+
+    const serialized = serializeGameParams(game);
+    db.setObject(`game_params`, serialized);
+  } else {
+    throw new Error('No game found, please initialize a game first.');
   }
-
-  if (!balance.isInteger) {
-    return out.exitCode(-1).msg("Invalid data").done();
-  }
-
-  if (balance._num < burnPayload.amount) {
-    return out.exitCode(-1).msg("In sufficient balance").done();
-  }
-
-  return new TxOutput().done();
 }
