@@ -62,15 +62,14 @@ describe("hello-world", () => {
 
     // act
     execForEnv(contract.openGame, envP1, anchorIds[0]);
-
     execForEnv(contract.joinGame, envP2, anchorIds[1]);
 
-    execForEnv(contract.play, envP1, anchorIds[2], 5);
-    execForEnv(contract.play, envP2, anchorIds[3], 8);
-    execForEnv(contract.play, envP1, anchorIds[4], 3);
-    execForEnv(contract.play, envP2, anchorIds[5], 2);
-    execForEnv(contract.play, envP1, anchorIds[6], 1);
-    execForEnv(contract.play, envP2, anchorIds[7], 4);
+    execForEnv(contract.play, envP1, anchorIds[2], "5");
+    execForEnv(contract.play, envP2, anchorIds[3], "8");
+    execForEnv(contract.play, envP1, anchorIds[4], "3");
+    execForEnv(contract.play, envP2, anchorIds[5], "2");
+    execForEnv(contract.play, envP1, anchorIds[6], "1");
+    execForEnv(contract.play, envP2, anchorIds[7], "4");
 
     expect(stateCache.get('winner')).to.equal('TheEnemie:2');
   });

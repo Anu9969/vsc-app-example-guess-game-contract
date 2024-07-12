@@ -75,8 +75,8 @@ export function joinGame(): void {
 }
 
 export function resetGame(): void {
-  db.setObject(`game_params`, "null");
-  db.setObject(`winner`, "null");
+  db.setObject(`game_params`, null);
+  db.setObject(`winner`, null);
 }
 
 export function calcAbsDiff(a: i64, b: i64): i64 {
@@ -96,7 +96,21 @@ function convertCharToRange(charCode: u8): i64 {
   return <i64>mappedValue;
 }
 
-export function play(guess: number): void {
+export function saveString(key: string, value: string): void {
+  let encoder = new JSONEncoder();
+  encoder.pushObject(null);
+  encoder.setString(key, value);
+  encoder.popObject();
+  db.setObject(key, encoder.toString());
+}
+
+export function getString(key: string): string {
+  const value = db.getObject(key);
+  const parsed = <JSON.Obj>JSON.parse(value)
+  return parsed.getString(key)!.valueOf();
+}
+
+export function play(guess: string): void {
   const currentGame = db.getObject(`game_params`);
   if (currentGame !== "null") {
     const env = getEnv()
@@ -109,15 +123,16 @@ export function play(guess: number): void {
       throw new Error('Player 2 not joined yet.');
     }
     if (game.player1 === env.msg_sender) {
-      game.player1Guess = <i64>guess;
+      game.player1Guess = <i64>parseInt(guess);
     }
     if (game.player2 === env.msg_sender) {
-      game.player2Guess = <i64>guess;
+      game.player2Guess = <i64>parseInt(guess);
     }
 
     if (game.player1Guess !== 0 && game.player2Guess !== 0) {
       // using anchor_id as random number
       const randomNumber: i64 = convertCharToRange(<u8>env.anchor_id.charCodeAt(0));
+      saveString('last_random_number', randomNumber.toString());
       if (calcAbsDiff(game.player1Guess!, randomNumber) < calcAbsDiff(game.player2Guess!, randomNumber)) {
         game.player1Score += 1;
       } else {
@@ -125,15 +140,14 @@ export function play(guess: number): void {
       }
 
       game.currentRound += 1;
-      if (game.currentRound === game.rounds) {
+      if (game.currentRound.toString() == game.rounds.toString()) {
         if (game.player1Score > game.player2Score) {
-          db.setObject('winner', game.player1! + ':' + game.player1Score.toString());
-          return;
+          saveString('winner', game.player1! + ':' + game.player1Score.toString());
         } else {
-          db.setObject('winner', game.player2! + ':' + game.player2Score.toString());
-          return;
+          saveString('winner', game.player2! + ':' + game.player2Score.toString());
         }
       }
+      
       game.player1Guess = 0;
       game.player2Guess = 0;
     }
