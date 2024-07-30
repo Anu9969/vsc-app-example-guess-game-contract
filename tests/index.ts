@@ -7,7 +7,6 @@ import {
   setContractImport,
 } from "@vsc.eco/contract-testing-utils";
 
-// import { beforeEach, describe, it } from "mocha";
 import { expect } from "chai";
 
 const contractImport = import("../build/debug");
@@ -17,7 +16,6 @@ beforeAll(() => setContractImport(contractImport));
 beforeEach(reset);
 
 // function that replaces every property in the contractEnv object with the properties of the newEnv object
-
 function replaceEnv(newEnv: any) {
   for (const key in newEnv) {
     contractEnv[key] = newEnv[key];
@@ -71,6 +69,7 @@ describe("hello-world", () => {
     execForEnv(contract.play, envP1, anchorIds[6], "1");
     execForEnv(contract.play, envP2, anchorIds[7], "4");
 
+    // assert
     expect(stateCache.get('winner')).to.equal('TheEnemie:2');
   });
 });
