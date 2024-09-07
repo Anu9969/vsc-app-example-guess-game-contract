@@ -131,7 +131,7 @@ export function play(guess: string): void {
 
     if (game.player1Guess !== 0 && game.player2Guess !== 0) {
       // using anchor_id as random number
-      const randomNumber: i64 = convertCharToRange(<u8>env.anchor_id.charCodeAt(0));
+      const randomNumber: i64 = convertCharToRange(<u8>env.anchor_id.charCodeAt(58));
       saveString('last_random_number', randomNumber.toString());
       if (calcAbsDiff(game.player1Guess!, randomNumber) < calcAbsDiff(game.player2Guess!, randomNumber)) {
         game.player1Score += 1;
