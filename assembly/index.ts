@@ -75,8 +75,9 @@ export function joinGame(): void {
 }
 
 export function resetGame(): void {
-  db.setObject(`game_params`, null);
-  db.setObject(`winner`, null);
+  db.setObject(`game_params`, "null");
+  db.setObject(`winner`, "null");
+  db.setObject(`last_random_number`, "null");
 }
 
 export function calcAbsDiff(a: i64, b: i64): i64 {
